@@ -1,0 +1,22 @@
+Arduino DFU Progamming Notes
+
+lsusb
+
+Arduino in DFU mode looks like this:
+
+Bus 002 Device 059: ID 03eb:2ff7 Atmel Corp.
+
+Get it into DFU mode by shorting leftmost pins behind USB connector.
+http://arduino.cc/en/Hacking/DFUProgramming8U2
+
+mwales@Axelay ~/working/my_arduino_projects $ sudo dfu-programmer at90usb82 erase
+mwales@Axelay ~/working/my_arduino_projects $ sudo dfu-programmer at90usb82 flash Arduino-usbserial-uno.hex 
+Validating...
+4058 bytes used (49.54%)
+mwales@Axelay ~/working/my_arduino_projects $ sudo dfu-programmer at90usb82 reset
+
+Then unplug and replug board
+
+Arduino UNO in serial port mode:
+
+Bus 002 Device 062: ID 2341:0001
