@@ -41,10 +41,18 @@ uint8_t PrevKeyboardHIDReportBuffer[sizeof(USB_KeyboardReport_Data_t)];
 
 /**** My Code ****/
 
-uint8_t LatchedMessage[3];
-uint8_t IncomingMessage[3];
+// Message structure
+//  0xFF Sync Byte
+//  0 for Up, 1 for Down
+//  Keycode Byte
+//  Modifier Byte
+
+
+uint8_t LatchedMessage[4];
+uint8_t IncomingMessage[4];
 const int MAX_SIMULTANEOUS_KEYS = 6;
 uint8_t KeysPressed[6];
+uint8_t globalModCode;
 int incomingMessageIndex;
 
 #define KEY_UP 0
@@ -53,13 +61,14 @@ int incomingMessageIndex;
 static inline void Buttons_Init(void)
 {
 	memset(KeysPressed, 0, MAX_SIMULTANEOUS_KEYS);
+	
 }
 
 //static inline uint8_t Buttons_GetStatus(void) ATTR_WARN_UNUSED_RESULT;
-static inline uint8_t Buttons_GetStatus(void)
-{
-	return (LatchedMessage[2]);
-}
+//static inline uint8_t Buttons_GetStatus(void)
+//{
+//	return (LatchedMessage[2]);
+//}
 
 static inline void Joystick_Init(void)
 {
@@ -87,7 +96,7 @@ static inline void removeKey(uint8_t keyCode)
    }
 }
 
-static inline void addKey(uint8_t keyCode)
+static inline void addKey(uint8_t keyCode, uint8_t modCode)
 {
    for(int i = 0; i < MAX_SIMULTANEOUS_KEYS; i++)
    {
@@ -95,12 +104,13 @@ static inline void addKey(uint8_t keyCode)
       {
          // This is the first empty spot in the list
          KeysPressed[i] = keyCode;
+         globalModCode = modCode;
          break;
       }
    }
 }
 
-static inline void processNewMessage(uint8_t upDownCode, uint8_t keyCode)
+static inline void processNewMessage(uint8_t upDownCode, uint8_t keyCode, uint8_t modCode)
 {
    if (upDownCode == KEY_UP)
    {
@@ -108,7 +118,7 @@ static inline void processNewMessage(uint8_t upDownCode, uint8_t keyCode)
    }
    else
    {
-      addKey(keyCode);
+      addKey(keyCode, modCode);
    }
 }
 
@@ -122,10 +132,11 @@ ISR(USART1_RX_vect, ISR_BLOCK)
     IncomingMessage[incomingMessageIndex] = ReceivedByte;
     incomingMessageIndex++;
 
-    if (incomingMessageIndex == 3)
+    if (incomingMessageIndex == 4)
     {
         //Received the whole message
-        processNewMessage(IncomingMessage[1], IncomingMessage[2]);
+        processNewMessage(IncomingMessage[1], IncomingMessage[2], IncomingMessage[3]);
+        globalModCode = IncomingMessage[3];
         //LatchedMessage[1] = IncomingMessage[1];
         //LatchedMessage[2] = IncomingMessage[2];
         incomingMessageIndex = 0;
@@ -275,21 +286,21 @@ bool CALLBACK_HID_Device_CreateHIDReport(USB_ClassInfo_HID_Device_t* const HIDIn
       }
    }
 
-	static int counter = 0;
-	counter++;
+	//static int counter = 0;
+	//counter++;
 
-	if (counter > 100)
-	{
-      counter = 0;
+	//if (counter > 100)
+	//{
+   //   counter = 0;
       //KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_G + incomingMessageIndex;
       //KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_A + i;
-	}
+	//}
 	
 	
 	
 
-	//if (UsedKeyCodes)
-	//  KeyboardReport->Modifier = HID_KEYBOARD_MODIFER_LEFTSHIFT;
+	if (UsedKeyCodes)
+	  KeyboardReport->Modifier = globalModCode;
    
 	*ReportSize = sizeof(USB_KeyboardReport_Data_t);
 	return false;
