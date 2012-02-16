@@ -64,6 +64,7 @@
 			#error Do not include this file directly. Include LUFA/Drivers/Board/LEDS.h instead.
 		#endif
 
+         #ifndef MINIMAL_LUFA
 	/* Public Interface - May be used in end-application: */
 		/* Macros: */
 			/** LED mask for the first LED on the board. */
@@ -117,6 +118,7 @@
 			{
 				return (PORTD & LEDS_ALL_LEDS);
 			}
+		#endif
 		#endif
 
 	/* Disable C linkage for C++ Compilers: */

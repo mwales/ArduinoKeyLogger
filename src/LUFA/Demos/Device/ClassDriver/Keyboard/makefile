@@ -60,13 +60,13 @@
 
 
 # MCU name
-MCU = at90usb1287
+MCU = at90usb82
 
 
 # Target board (see library "Board Types" documentation, NONE for projects not requiring
 # LUFA board drivers). If USER is selected, put custom board drivers in a directory called
 # "Board" inside the application directory.
-BOARD = USBKEY
+BOARD = UNO
 
 
 # Processor frequency.
@@ -80,7 +80,7 @@ BOARD = USBKEY
 #     does not *change* the processor frequency - it should merely be updated to
 #     reflect the processor speed set externally so that the code can use accurate
 #     software delays.
-F_CPU = 8000000
+F_CPU = 16000000
 
 
 # Input clock frequency.
@@ -121,6 +121,7 @@ LUFA_OPTS += -D FIXED_CONTROL_ENDPOINT_SIZE=8
 LUFA_OPTS += -D FIXED_NUM_CONFIGURATIONS=1
 LUFA_OPTS += -D USE_FLASH_DESCRIPTORS
 LUFA_OPTS += -D USE_STATIC_OPTIONS="(USB_DEVICE_OPT_FULLSPEED | USB_OPT_REG_ENABLED | USB_OPT_AUTO_PLL)"
+LUFA_OPTS += -D MINIMAL_LUFA
 
 
 # Create the LUFA source path variables by including the LUFA root makefile
@@ -179,7 +180,7 @@ CSTANDARD = -std=c99
 # Place -D or -U options here for C sources
 CDEFS  = -DF_CPU=$(F_CPU)UL
 CDEFS += -DF_CLOCK=$(F_CLOCK)UL
-CDEFS += -DBOARD=BOARD_$(BOARD)
+CDEFS += -DBOARD=BOARD_$(BOARD) 
 CDEFS += $(LUFA_OPTS)
 
 

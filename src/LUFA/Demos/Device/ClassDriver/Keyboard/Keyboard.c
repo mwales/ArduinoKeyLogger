@@ -39,6 +39,120 @@
 /** Buffer to hold the previously generated Keyboard HID report, for comparison purposes inside the HID class driver. */
 uint8_t PrevKeyboardHIDReportBuffer[sizeof(USB_KeyboardReport_Data_t)];
 
+/**** My Code ****/
+
+uint8_t LatchedMessage[3];
+uint8_t IncomingMessage[3];
+const int MAX_SIMULTANEOUS_KEYS = 6;
+uint8_t KeysPressed[6];
+int incomingMessageIndex;
+
+#define KEY_UP 0
+#define KEY_DOWN 1
+
+static inline void Buttons_Init(void)
+{
+	memset(KeysPressed, 0, MAX_SIMULTANEOUS_KEYS);
+}
+
+//static inline uint8_t Buttons_GetStatus(void) ATTR_WARN_UNUSED_RESULT;
+static inline uint8_t Buttons_GetStatus(void)
+{
+	return (LatchedMessage[2]);
+}
+
+static inline void Joystick_Init(void)
+{
+	Serial_Init(115200, true);
+    UCSR1B = ((1 << RXCIE1) | (1 << TXEN1) | (1 << RXEN1));
+}
+
+static inline void removeKey(uint8_t keyCode)
+{
+   bool keyFound = false;
+   for(int i = 0; i < (MAX_SIMULTANEOUS_KEYS - 1); i++)
+   {      
+      
+      if (KeysPressed[i] == keyCode)
+      {
+         keyFound = true;
+      } 
+      
+      if (keyFound)
+      {
+         // This character should be moved up from the last character
+         KeysPressed[i] = KeysPressed[i+1];
+         KeysPressed[i+1] = 0;
+      }
+   }
+}
+
+static inline void addKey(uint8_t keyCode)
+{
+   for(int i = 0; i < MAX_SIMULTANEOUS_KEYS; i++)
+   {
+      if (KeysPressed[i] == 0)
+      {
+         // This is the first empty spot in the list
+         KeysPressed[i] = keyCode;
+         break;
+      }
+   }
+}
+
+static inline void processNewMessage(uint8_t upDownCode, uint8_t keyCode)
+{
+   if (upDownCode == KEY_UP)
+   {
+      removeKey(keyCode);
+   }
+   else
+   {
+      addKey(keyCode);
+   }
+}
+
+/** ISR to manage the reception of data from the serial port, placing received bytes into a circular buffer
+ *  for later transmission to the host.
+ */
+ISR(USART1_RX_vect, ISR_BLOCK)
+{
+    uint8_t ReceivedByte = UDR1;
+    
+    IncomingMessage[incomingMessageIndex] = ReceivedByte;
+    incomingMessageIndex++;
+
+    if (incomingMessageIndex == 3)
+    {
+        //Received the whole message
+        processNewMessage(IncomingMessage[1], IncomingMessage[2]);
+        //LatchedMessage[1] = IncomingMessage[1];
+        //LatchedMessage[2] = IncomingMessage[2];
+        incomingMessageIndex = 0;
+    }
+    
+    if ( (incomingMessageIndex == 1) && 
+         (IncomingMessage[0] != 0xFF) )
+    {
+        incomingMessageIndex = 0;
+    }
+         
+        
+
+    //if ((USB_DeviceState == DEVICE_STATE_Configured) &&
+	//    !RingBuffer_IsFull(&USARTtoUSB_Buffer)) {
+	//RingBuffer_Insert(&USARTtoUSB_Buffer, ReceivedByte);
+    //}
+}
+
+//static inline uint8_t Joystick_GetStatus(void) ATTR_WARN_UNUSED_RESULT;
+//static inline uint8_t Joystick_GetStatus(void)
+//{
+//	return (LatchedMessage[1]);
+//}
+
+/**** End My Code ****/
+
 /** LUFA HID Class driver interface configuration and state information. This structure is
  *  passed to all HID Class driver functions, so that multiple instances of the same class
  *  within a device can be differentiated from one another.
@@ -65,7 +179,7 @@ int main(void)
 {
 	SetupHardware();
 
-	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
+	//LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
 	sei();
 
 	for (;;)
@@ -87,7 +201,7 @@ void SetupHardware()
 
 	/* Hardware Initialization */
 	Joystick_Init();
-	LEDs_Init();
+	//LEDs_Init();
 	Buttons_Init();
 	USB_Init();
 }
@@ -95,13 +209,13 @@ void SetupHardware()
 /** Event handler for the library USB Connection event. */
 void EVENT_USB_Device_Connect(void)
 {
-	LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
+	//LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
 }
 
 /** Event handler for the library USB Disconnection event. */
 void EVENT_USB_Device_Disconnect(void)
 {
-	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
+	//LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
 }
 
 /** Event handler for the library USB Configuration Changed event. */
@@ -113,7 +227,7 @@ void EVENT_USB_Device_ConfigurationChanged(void)
 
 	USB_Device_EnableSOFEvents();
 
-	LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
+	//LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
 }
 
 /** Event handler for the library USB Control Request reception event. */
@@ -143,30 +257,40 @@ bool CALLBACK_HID_Device_CreateHIDReport(USB_ClassInfo_HID_Device_t* const HIDIn
 {
 	USB_KeyboardReport_Data_t* KeyboardReport = (USB_KeyboardReport_Data_t*)ReportData;
 
-	uint8_t JoyStatus_LCL    = Joystick_GetStatus();
-	uint8_t ButtonStatus_LCL = Buttons_GetStatus();
+	//uint8_t JoyStatus_LCL    = Joystick_GetStatus();
+	//uint8_t ButtonStatus_LCL = Buttons_GetStatus();
 
 	uint8_t UsedKeyCodes = 0;
+	int i;
+	for(i = 0; i < MAX_SIMULTANEOUS_KEYS; i++)
+   {
+      if (KeysPressed[i] != 0)
+      {
+         // This is the first empty spot in the list
+         KeyboardReport->KeyCode[UsedKeyCodes++] = KeysPressed[i];
+      }
+      else
+      {
+         break;
+      }
+   }
 
-	if (JoyStatus_LCL & JOY_UP)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_A;
-	else if (JoyStatus_LCL & JOY_DOWN)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_B;
+	static int counter = 0;
+	counter++;
 
-	if (JoyStatus_LCL & JOY_LEFT)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_C;
-	else if (JoyStatus_LCL & JOY_RIGHT)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_D;
+	if (counter > 100)
+	{
+      counter = 0;
+      //KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_G + incomingMessageIndex;
+      //KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_A + i;
+	}
+	
+	
+	
 
-	if (JoyStatus_LCL & JOY_PRESS)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_E;
-
-	if (ButtonStatus_LCL & BUTTONS_BUTTON1)
-	  KeyboardReport->KeyCode[UsedKeyCodes++] = HID_KEYBOARD_SC_F;
-
-	if (UsedKeyCodes)
-	  KeyboardReport->Modifier = HID_KEYBOARD_MODIFER_LEFTSHIFT;
-
+	//if (UsedKeyCodes)
+	//  KeyboardReport->Modifier = HID_KEYBOARD_MODIFER_LEFTSHIFT;
+   
 	*ReportSize = sizeof(USB_KeyboardReport_Data_t);
 	return false;
 }
@@ -185,7 +309,7 @@ void CALLBACK_HID_Device_ProcessHIDReport(USB_ClassInfo_HID_Device_t* const HIDI
                                           const void* ReportData,
                                           const uint16_t ReportSize)
 {
-	uint8_t  LEDMask   = LEDS_NO_LEDS;
+	/*uint8_t  LEDMask   = LEDS_NO_LEDS;
 	uint8_t* LEDReport = (uint8_t*)ReportData;
 
 	if (*LEDReport & HID_KEYBOARD_LED_NUMLOCK)
@@ -197,6 +321,6 @@ void CALLBACK_HID_Device_ProcessHIDReport(USB_ClassInfo_HID_Device_t* const HIDI
 	if (*LEDReport & HID_KEYBOARD_LED_SCROLLLOCK)
 	  LEDMask |= LEDS_LED4;
 
-	LEDs_SetAllLEDs(LEDMask);
+	LEDs_SetAllLEDs(LEDMask);*/
 }
 

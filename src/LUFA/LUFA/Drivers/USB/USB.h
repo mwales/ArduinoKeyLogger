@@ -395,14 +395,16 @@
 			#include "LowLevel/OTG.h"
 		#endif
 		
-		#include "Class/Audio.h"
-		#include "Class/CDC.h"
-		#include "Class/HID.h"
-		#include "Class/MassStorage.h"
-		#include "Class/MIDI.h"
-		#include "Class/Printer.h"
-		#include "Class/RNDIS.h"
-		#include "Class/StillImage.h"
-
+		#ifdef MINIMAL_LUFA
+		   #include "Class/HID.h"
+		#else
+		   #include "Class/Audio.h"
+		   #include "Class/CDC.h"
+		   #include "Class/MassStorage.h"
+		   #include "Class/MIDI.h"
+		   #include "Class/Printer.h"
+		   #include "Class/RNDIS.h"
+		   #include "Class/StillImage.h"
+      #endif
 #endif
 
